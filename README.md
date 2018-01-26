@@ -16,7 +16,6 @@ Do not use in production.
 - PHP 7.0+
 - [Laravel 5.5][laravel-5.5]
 - [laracasts/flash][laracasts-flash]
-- [laracollective/html][laravelcollective-html]
 - [Bootstrap][bootstrap-3] (for styling)
 
 ## Install
@@ -80,6 +79,11 @@ class PostsController extends ResourceController
 
     // By default, auth middleware is applied, overwrite to not do that
     protected $authenticated = false;
+
+    //Link on Post model to any linked resources (replies in this case)
+    protected $show_linked_resources = [
+        'replies',
+    ];
 }
 ```
 
@@ -189,15 +193,11 @@ Route::resource('posts.reply', 'PostsWithReplyController');
 ## Future
 These things need to be fixed in approximately this order.
 
-- Fully implement linked resources
- - Add linked resource to resource show view?
+- --Fully implement linked resources-- done
+- --Add linked resource to resource show view?-- done
 - Add tests and clean up code
- - Clean up (or remove) custom eqloquent model
- - Remove redundant `ValidatedResourceRequest` and `ValidatedLinkedResourceRequest`.
 - Route helper
-- Not dependent on a layout with content box
-- Bootstrap independent
-- Laracasts/Flash independent
+- Laracasts/Flash independent?
 
 ## License
 
@@ -205,6 +205,5 @@ The MIT License (MIT). Please see [License File](LICENSE.md) for more informatio
 
 [ico-license]: https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square
 [laracasts-flash]:https://github.com/Laracasts/Flash
-[laravelcollective-html]:https://github.com/laravelcollective/html
 [laravel-5.5]:https://laravel.com/docs/5.5
 [bootstrap-3]:https://getbootstrap.com/docs/3.3/

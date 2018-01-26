@@ -3,27 +3,54 @@
 @section('content')
 <div class="container">
     <h3 class="heading-title">
-        <a href="{{ $html->get('backRoute') }}">
-            {{ $html->get('titleString') }}
+        <a href="{{ $presenter->get('backPath') }}">
+            {{ $presenter->get('backTitle') }}
         </a>
     </h3>
-    <div class="panel panel-info">
-        <div class="panel-body">
-            <p>{{ $html->get('panelBody') }}</p>
-        </div>
+
+    <div class="panel panel-danger">
+        @if (isset($resource))
+            <div class="panel-heading">
+                <h3 class="panel-title">
+                    Are you sure you want to delete this {{ $presenter->get('resourceTitle') ?? '' }}?
+                </h3>
+            </div>
+            <table class="table table-condensed table-show-info">
+                <tbody>
+                    @foreach($resource->presentableAttributes() as $key => $value)
+                        <tr>
+                            <td class="col-sm-4">
+                                {{ $resource->keyToTitle($key) }}
+                            </td>
+                            <td>
+                                {{ $value }}
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            <div class="panel-body">
+                <p>
+                    {{ $presenter->get('panelBody') }}
+                </p>
+            </div>
+        @endif
         <div class="panel-footer">
             <div class="pull-right">
-            <a href="{{ $html->get('backRoute') }}" class="btn btn-default">
-                Go back
-            </a>
+                <a href="{{ $presenter->get('backPath') }}" class="btn btn-default">
+                    Go back
+                </a>
 
-            <form method="POST" action="{{ $html->get('confirmRoute')}}" style="display:inline-block;">
-                <input type="hidden" name="_method" value="patch">
-                <input type="hidden" name="_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-primary">Yes{{ $html->get('confirmText') ? ', '.$html->get('confirmText') : '' }}</button>
-            </form>
+                <form method="post" action="{{ $presenter->get('formAction') }}" style="display: inline-block;">
+                    {!! csrf_field() !!}
+                    {!! method_field($presenter->get('formMethod')) !!}
+                    <button type="submit" class="btn {{ $presenter->get('formButtonClass') ?? 'btn-primary'}}">
+                        Yes{{ $presenter->has('formButton') ? ', '.$presenter->get('formButton') : '' }}
+                    </button>
+                </form>
             </div>
-            <div class="clearfix"></div>
+            <div class="clearfix"><div>
         </div>
     </div>
 </div>

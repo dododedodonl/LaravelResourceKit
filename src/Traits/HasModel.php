@@ -75,7 +75,7 @@ trait HasModel
         if (! class_exists($class)) {
             throw new \Exception('No model \''.$class.'\' found.');
         }
-        
+
         return app($class);
     }
 }

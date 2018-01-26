@@ -7,6 +7,7 @@ use Dododedodonl\LaravelResourceKit\Traits\HasLinkedResource;
 use Dododedodonl\LaravelResourceKit\Traits\RedirectsToResource;
 use Dododedodonl\LaravelResourceKit\Traits\RedirectsToLinkedResource;
 use Dododedodonl\LaravelResourceKit\Traits\ValidatedLinkedResourceRequest;
+use Dododedodonl\LaravelResourceKit\Helpers\Action;
 
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Routing\Controller as BaseController;
@@ -83,6 +84,50 @@ class LinkedResourceController extends BaseController
     }
 
 
+    protected function presenter($resource, $additionalElements = [])
+    {
+        $actions = [];
+
+        if($this->isDeletable())
+        {
+            $actions[] = new Action(
+                $this->resourceBase('confirm'),
+                'trash'
+            );
+        }
+
+        if($this->isEditable())
+        {
+            $actions[] = new Action(
+                $this->resourceBase('edit'),
+                'pencil'
+            );
+        }
+
+        $create = [];
+        if($this->isCreatable())
+        {
+            $create['createAction'] = new Action(
+                $this->resourceBase('create'),
+                'plus'
+            );
+        }
+
+        return collect([
+            'backPath'  => $this->resourceRoute($resource, 'show'),
+            'backTitle' => ucfirst($this->getLowerCaseModelName().': '.$resource->titleDescription()),
+            'actions'   => $actions,
+        ])->merge($create)->merge($additionalElements);
+    }
+
+    protected function defaultOrCustomView($view)
+    {
+        if(view()->exists($this->linkedResourceBase($view))) {
+            return $this->linkedResourceBase($view);
+        }
+        return 'ResourceKit::resource.'.$view;
+    }
+
 
     /**
      * Show overview of linked resources.
@@ -92,7 +137,9 @@ class LinkedResourceController extends BaseController
      * @return \Illuminate\Http\Response
      */
     public function index($resourceId) {
-        return 'Not implemented yet.';
+        $resource = $this->getResourceOrFail($resourceId);
+
+        return $this->redirectToResource($resource);
     }
 
 
@@ -110,18 +157,14 @@ class LinkedResourceController extends BaseController
         $resource = $this->getResourceOrFail($resourceId);
         $linkedResource = $this->getNewLinkedResource();
 
-        $html = $this->viewVariables($resource, [
-            'method'      => 'POST',
-            'formRoute'   => [$this->linkedResourceBase('store'), $resourceId],
-            'buttonText'  => 'Add',
+        $presenter = $this->presenter($resource, [
+            'formMethod'    => 'POST',
+            'formAction'    => route($this->linkedResourceBase('store'), $resourceId),
+            'formButton'    => 'Add',
         ]);
 
-        $view = 'ResourceKit::linkedresource.form';
-        if (view()->exists($this->linkedResourceBase('form'))) {
-            $view = $this->linkedResourceBase('form');
-        }
-
-        return view($view, compact('resource', 'linkedResource', 'html'));
+        return view($this->defaultOrCustomView('form'), compact('presenter'))
+            ->with('resource', $linkedResource);
     }
 
     /**
@@ -152,10 +195,8 @@ class LinkedResourceController extends BaseController
      */
     public function show($resourceId, $linkedResourceId)
     {
-        //NOTE add? show linked resource form instead of redirection
         $resource = $this->getResourceOrFail($resourceId);
 
-        flash('Redirected from linked resource (#'.$linkedResourceId.') (not implemented yet).');
         return $this->redirectToResource($resource);
     }
 
@@ -173,12 +214,15 @@ class LinkedResourceController extends BaseController
         $resource = $this->getResourceOrFail($resourceId);
         $linkedResource = $this->getLinkedResourceOrFail($resource, $linkedResourceId);
 
-        $html = $this->viewVariables($resource, [
-            'deleteRoute'    => $this->linkedResourceRoute($resource, $linkedResource, 'destroy'),
-            'resourceTitle'  => $this->getLinkedModelName(),
+        $presenter = $this->presenter($resource, [
+            'formAction'        => $this->linkedResourceRoute($resource, $linkedResource, 'destroy'),
+            'formMethod'        => 'delete',
+            'formButton'        => 'delete this '.$this->getLowerCaseLinkedModelName(),
+            'formButtonClass'   => 'btn-danger',
+            'resourceTitle'     => $this->getLinkedModelName(),
         ]);
 
-        return view('ResourceKit::linkedresource.delete', compact('resource', 'linkedResource', 'html'));
+        return view($this->defaultOrCustomView('confirm'), compact('resource', 'linkedResource', 'presenter'));
     }
 
     /**
@@ -194,18 +238,14 @@ class LinkedResourceController extends BaseController
         $resource = $this->getResourceOrFail($resourceId);
         $linkedResource = $this->getLinkedResourceOrFail($resource, $linkedResourceId);
 
-        $html = $this->viewVariables($resource, [
-            'method'      => 'PATCH',
-            'formRoute'   => [$this->linkedResourceBase('update'), $resourceId, $linkedResourceId],
-            'buttonText'  => 'Edit',
+        $presenter = $this->presenter($resource, [
+            'formMethod' => 'PATCH',
+            'formAction' => route($this->linkedResourceBase('update'), [$resourceId, $linkedResourceId]),
+            'formButton' => 'Edit',
         ]);
 
-        $view = 'ResourceKit::linkedresource.form';
-        if (view()->exists($this->linkedResourceBase('form'))) {
-            $view = $this->linkedResourceBase('form');
-        }
-
-        return view($view, compact('resource', 'linkedResource', 'html'));
+        return view($this->defaultOrCustomView('form'), compact('presenter'))
+            ->with('resource', $linkedResource);
     }
 
     /**

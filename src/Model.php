@@ -19,30 +19,12 @@ class Model extends EloquentModel
     ];
 
     /**
-     * Only return attributes that are displayable.
+     * What form input should an attribute be
+     * key => type
      *
-     * @param bool  $default
-     * @param array $filtered
-     *
-     * @return Collection
+     * @var array
      */
-    public function getFilteredAttributes($default = true, $filtered = [])
-    {
-        $filter = $this->filtered ? array_merge($this->filtered, $filtered) : $filtered;
-        if ($default) {
-            $filter = array_merge($filter, $this->filtered_default);
-        }
-
-        return collect($this->getAttributes())->reject(function ($value, $key) use ($filter) {
-            if (is_null($value) || in_array($key, $filter)) {
-                return true;
-            }
-
-            return false;
-        })->transform(function ($value, $key) {
-            return $this->getAttribute($key);
-        });
-    }
+    protected $form_types = [];
 
     /**
      * Only return attributes that are displayable.
@@ -52,50 +34,6 @@ class Model extends EloquentModel
      *
      * @return Collection
      */
-    public function getFilteredAndNullAttributes($default = true, $filtered = [])
-    {
-        $filter = $this->filtered ? array_merge($this->filtered, $filtered) : $filtered;
-        if ($default) {
-            $filter = array_merge($filter, $this->filtered_default);
-        }
-
-        return collect($this->getAttributes())->reject(function ($value, $key) use ($filter) {
-            if (in_array($key, $filter)) {
-                return true;
-            }
-
-            return false;
-        })->transform(function ($value, $key) {
-            return $this->getAttribute($key);
-        });
-    }
-
-    /**
-     * Only return attributes that are filled or fillable.
-     *
-     * @param bool  $default
-     * @param array $filtered
-     *
-     * @return Collection
-     */
-    public function getFilteredAndFillableAttributes($default = true, $filtered = [])
-    {
-        $filter = isset($this->filtered) ? array_merge($this->filtered, $filtered) : $filtered;
-        if ($default) {
-            $filter = array_merge($filter, $this->filtered_default);
-        }
-        $fillable = isset($this->fillable) ? $this->fillable : [];
-
-        return collect($this->getAttributes())->reject(function ($value, $key) use ($filter, $fillable) {
-            if (in_array($key, $filter) || (is_null($value) && ! in_array($key, $fillable))) {
-                return true;
-            }
-
-            return false;
-        })->transform(function ($value, $key) {
-            return $this->getAttribute($key);
-        });
-    }
 
     /**
      * Returns title description.
@@ -116,31 +54,137 @@ class Model extends EloquentModel
     {
         return with(new self)->getTable();
     }
-
-
-    /**
-     * Returns value for the route key.
-     *
-     * @return mixed defaults to id
-     */
-    public function getRouteKey()
-    {
-        return $this->id;
-    }
-
     /**
      * Returns all fillable attributes with null.
      *
-     * @return \Dododedodonl\LaravelResourceKit\Model $this
+     * @return \Ledenbestand\Model $this
      */
     public function withNulledFillableAttributes()
     {
         if (isset($this->fillable)) {
-            $model = $this;
-            collect($this->fillable)->each(function ($value, $key) use ($model) {
-                $model->$value = null;
-            });
+            foreach($this->fillable as $fillable) {
+                $this->$fillable = null;
+            }
         }
         return $this;
+    }
+
+    /**
+     * Returns value for the path attribute.
+     *
+     * @return mixed defaults to id
+     */
+    public function pathAttribute()
+    {
+        return $this->id;
+    }
+
+    protected function filteredKeys()
+    {
+        if (isset($this->filtered)) return $this->filtered;
+
+        return $this->filtered_default;
+    }
+
+    public function presentableAttributes($withNulled = false)
+    {
+        //TODO: add relationships
+        $filtered = $this->filteredKeys();
+
+        $attributes = [];
+        foreach($this->getAttributes() as $key => $value) {
+            if (key_exists($key, $this->getCasts()) && $this->getCasts()[$key] == 'boolean') {
+                $value = ($value) ? 'yes' : 'no';
+            }
+            if ( ! in_array($key, $filtered) && ($withNulled || $value !== null)) {
+                $attributes[$key] = $value;
+            }
+        }
+        return $attributes;
+    }
+
+    public function adjustableAttributes($withNulled = true)
+    {
+        //TODO: add relationships?
+        $attributes = [];
+        foreach($this->fillable as $key) {
+            $value = $this->getAttribute($key);
+
+            if($withNulled || $value !== null) {
+                $attributes[$key] = $value;
+            }
+        }
+
+        return $attributes;
+    }
+
+    public function attributeInputs($withNulled = true)
+    {
+        //TODO: add relationships
+        $attributes = $this->adjustableAttributes($withNulled);
+
+        $inputs = [];
+        foreach($attributes as $key => $value) {
+            $input = [
+                'type'  => 'text',
+                'key'   => $key,
+                'value' => $value,
+                'title' => $this->keyToTitle($key),
+            ];
+
+            if (key_exists($key, $this->form_types) && $this->form_types[$key] == 'textarea') {
+                $input['type'] = 'textarea';
+
+            } else if (key_exists($key, $this->form_types) && starts_with($this->form_types[$key], 'enum:')) {
+                $enum = explode(',', substr($this->form_types[$key], strlen('enum:')));
+
+                $options = [];
+                foreach($enum as $option) {
+                    if(($pos = strpos($option, '|')) !== false) {
+                        $options[] = [
+                            'value' => substr($option, 0, $pos),
+                            'title' => substr($option, $pos + 1),
+                        ];
+                    } else {
+                        $options[] = [
+                            'value' => $option,
+                            'title' => $option,
+                        ];
+                    }
+                }
+
+                $input['type'] = 'radio';
+                $input['options'] = $options;
+
+            } else if (key_exists($key, $this->getCasts()) && $this->getCasts()[$key] == 'boolean') {
+                $input['type'] = 'radio';
+                $input['options'] = [
+                    [
+                        'value' => '1',
+                        'title' => 'yes',
+                    ],
+                    [
+                        'value' => '0',
+                        'title' => 'no'
+                    ]
+                ];
+            }
+
+            $inputs[] = $input;
+        }
+
+        return $inputs;
+    }
+
+    public function keyToTitle($key)
+    {
+        return ucfirst(strtolower(str_ireplace('_', '', $key)));
+    }
+
+    public function linkedResources()
+    {
+        if (! (isset($this->show_linked_resources) && count($this->show_linked_resources) > 0)) return [];
+
+        return $this->show_linked_resources;
     }
 }
